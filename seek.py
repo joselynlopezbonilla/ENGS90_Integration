@@ -7,6 +7,8 @@ from time import sleep
 import math
 import random
 import gpiod
+import Status
+from HMI import curr_status
 
 chip1=gpiod.Chip('gpiochip1')
 
@@ -34,7 +36,7 @@ cv.namedWindow("Preview")
 
 # Changes with testbench hardware
 cam = cv.VideoCapture("/dev/video0")
-ser = serial.Serial('/dev/ttyUSB1', 115200)
+ser = serial.Serial('/dev/ttyUSB0', 115200)
 
 cam.set(cv.CAP_PROP_BUFFERSIZE, 1)
 
@@ -267,76 +269,77 @@ station_hole_locs = [
         (1, get_station_offset),
         ];
 
+def main_seek(): 
+    while True:
+        frame = get_image()
+        offset = [0, 0]
+        markerCorners, markerIds, rejectedCandidates = cv.aruco.detectMarkers(frame, aruco_dict, parameters=aruco_params)
+        output = frame.copy()
+        cv.aruco.drawDetectedMarkers(output, markerCorners, markerIds)
+        cv.imshow("Preview", output)
+        key =  cv.waitKey(20)
+        if key == 27:#ESC
+            break
+        elif key ==  82:#UP
+            offset = [0, 20]
+        elif key == 84:#DOWN
+            offset = [0, -20]
+        elif key == 81:#LEFT
+            offset = [-20, 0]
+        elif key == 83:#RIGHT
+            offset = [20, 0]
+        elif key == 48:# ZERO
+            home_marker(0)
+            gripper_line.set_values([0])
+        elif key == 49:# ONE
+            home_marker(1)
+            gripper_line.set_values([0])
+        elif key == 50:# TWO
+            home_marker(2)
+            gripper_line.set_values([0])
+        elif key == 51:# THREE
+            home_marker(3, hole_index=0)
+            pick(0)
+            gripper_line.set_values([1])
+            cv.waitKey(20000)
+            pick(1)
+        elif key == 52:# FOUR
+            home_marker(2, hole_index=0)
+            pick(0)
+            sleep(3)
+            cv.waitKey(20000)
+            pick(1)
+        elif key == 122:# z
+            reset_coords()
+            move_rel(offset)
+        #elif key == 100:# d
+        if curr_status.name == Status.SET.name:
+            print("DEMO MODE ACTIVE")
+            while True:
+                # Pickup station
+                home_marker(3, hole_index=0)
+                gripper_line.set_values([1])
+                frame = get_image()
+                cv.imshow("Preview", frame)
+                pick(0)
+                if cv.waitKey(500) == 27:
+                    break
+                pick(1)
+                # Random Dropoff
+                hole = random.randint(0, 11)
+                carrier = random.randint(0, 2)
+                home_marker(carrier, hole_index=hole)
+                gripper_line.set_values([0])
+                frame = get_image()
+                cv.imshow("Preview", frame)
+                pick(0)
+                if cv.waitKey(500) == 27:
+                    break
+                pick(1)
+        else:#all others
+            #print(key)
+            pass
+        if np.linalg.norm(offset) > 0.1:
+            move_rel(offset, rapid=True)
 
-# while True:
-#     frame = get_image()
-#     offset = [0, 0]
-#     markerCorners, markerIds, rejectedCandidates = cv.aruco.detectMarkers(frame, aruco_dict, parameters=aruco_params)
-#     output = frame.copy()
-#     cv.aruco.drawDetectedMarkers(output, markerCorners, markerIds)
-#     cv.imshow("Preview", output)
-#     key =  cv.waitKey(20)
-#     if key == 27:#ESC
-#         break
-#     elif key ==  82:#UP
-#         offset = [0, 20]
-#     elif key == 84:#DOWN
-#         offset = [0, -20]
-#     elif key == 81:#LEFT
-#         offset = [-20, 0]
-#     elif key == 83:#RIGHT
-#         offset = [20, 0]
-#     elif key == 48:# ZERO
-#         home_marker(0)
-#         gripper_line.set_values([0])
-#     elif key == 49:# ONE
-#         home_marker(1)
-#         gripper_line.set_values([0])
-#     elif key == 50:# TWO
-#         home_marker(2)
-#         gripper_line.set_values([0])
-#     elif key == 51:# THREE
-#         home_marker(3, hole_index=0)
-#         pick(0)
-#         gripper_line.set_values([1])
-#         cv.waitKey(20000)
-#         pick(1)
-#     elif key == 52:# FOUR
-#         home_marker(2, hole_index=0)
-#         pick(0)
-#         sleep(3)
-#         cv.waitKey(20000)
-#         pick(1)
-#     elif key == 122:# z
-#         reset_coords()
-#         move_rel(offset)
-#     elif key == 100:# d
-#         print("DEMO MODE ACTIVE")
-#         while True:
-#             # Pickup station
-#             home_marker(3, hole_index=0)
-#             gripper_line.set_values([1])
-#             frame = get_image()
-#             cv.imshow("Preview", frame)
-#             pick(0)
-#             if cv.waitKey(500) == 27:
-#                 break
-#             pick(1)
-#             # Random Dropoff
-#             hole = random.randint(0, 11)
-#             carrier = random.randint(0, 2)
-#             home_marker(carrier, hole_index=hole)
-#             gripper_line.set_values([0])
-#             frame = get_image()
-#             cv.imshow("Preview", frame)
-#             pick(0)
-#             if cv.waitKey(500) == 27:
-#                 break
-#             pick(1)
-#     else:#all others
-#         #print(key)
-#         pass
-#     if np.linalg.norm(offset) > 0.1:
-#         move_rel(offset, rapid=True)
-
-cam.release()
+    cam.release()

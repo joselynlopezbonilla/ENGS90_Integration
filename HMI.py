@@ -6,42 +6,45 @@ from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette
 from PyQt5.QtCore import Qt, pyqtSignal
 from Status import Status
 import threading
-# import gpiod
-import seek
+import gpiod
+#import seek
 
-# chip1=gpiod.Chip('gpiochip1')
-# chip4=gpiod.Chip('gpiochip4')
+chip1=gpiod.Chip('gpiochip1')
+chip4=gpiod.Chip('gpiochip4')
 
-# LED_line=chip1.get_lines([ 7 ]) # Pin 21
-# button1_line=chip1.get_lines([ 9 ]) # Pin 23
-# button2_line=chip1.get_lines([ 21 ]) # Pin 5
-# button3_line=chip4.get_lines([ 24 ]) # Pin 7
-# button4_line=chip1.get_lines([ 8 ]) # Pin 19
-# button5_line=chip1.get_lines([ 11 ]) # Pin 27
-# button6_line=chip4.get_lines([ 27 ]) # Pin 29
+LED_line=chip1.get_lines([ 7 ]) # Pin 21
+button1_line=chip1.get_lines([ 9 ]) # Pin 23
+button2_line=chip1.get_lines([ 21 ]) # Pin 5
+button3_line=chip4.get_lines([ 24 ]) # Pin 7
+button4_line=chip1.get_lines([ 8 ]) # Pin 19
+button5_line=chip1.get_lines([ 11 ]) # Pin 27
+button6_line=chip4.get_lines([ 27 ]) # Pin 29
 
-# LED_line.request(consumer='foobar', type=gpiod.LINE_REQ_DIR_OUT, default_vals=[ 0 ])
-# button1_line.request(consumer='button1', type=gpiod.LINE_REQ_DIR_IN)
-# button2_line.request(consumer='button2', type=gpiod.LINE_REQ_DIR_IN)
-# button3_line.request(consumer='button3', type=gpiod.LINE_REQ_DIR_IN)
-# button4_line.request(consumer='button4', type=gpiod.LINE_REQ_DIR_IN)
-# button5_line.request(consumer='button5', type=gpiod.LINE_REQ_DIR_IN)
-# button6_line.request(consumer='button6', type=gpiod.LINE_REQ_DIR_IN)
-
-# APPLICATION = None
-# ROLLING_STATUS = button1_line.get_values()[0]
-# ORIENT_STATUS = button2_line.get_values()[0]
-# PLACING_STATUS = button3_line.get_values()[0]
-# FULL_STATUS = button4_line.get_values()[0]
-# EMERGENCY_STATUS = button5_line.get_values()[0]
-# PART_STATUS = button6_line.get_values()[0]
+LED_line.request(consumer='foobar', type=gpiod.LINE_REQ_DIR_OUT, default_vals=[ 0 ])
+button1_line.request(consumer='button1', type=gpiod.LINE_REQ_DIR_IN)
+button2_line.request(consumer='button2', type=gpiod.LINE_REQ_DIR_IN)
+button3_line.request(consumer='button3', type=gpiod.LINE_REQ_DIR_IN)
+button4_line.request(consumer='button4', type=gpiod.LINE_REQ_DIR_IN)
+button5_line.request(consumer='button5', type=gpiod.LINE_REQ_DIR_IN)
+button6_line.request(consumer='button6', type=gpiod.LINE_REQ_DIR_IN)
 
 APPLICATION = None
-ROLLING_STATUS = 0
-ORIENT_STATUS = 0
-PLACING_STATUS = seek.home_marker()
-FULL_STATUS = 0
-PART_STATUS = 0
+ROLLING_STATUS = button1_line.get_values()[0]
+ORIENT_STATUS = button2_line.get_values()[0]
+PLACING_STATUS = button3_line.get_values()[0]
+FULL_STATUS = button4_line.get_values()[0]
+EMERGENCY_STATUS = button5_line.get_values()[0]
+PART_STATUS = button6_line.get_values()[0]
+
+
+# APPLICATION = None
+# ROLLING_STATUS = 0
+# ORIENT_STATUS = 0
+# PLACING_STATUS = 0
+# FULL_STATUS = 0
+# PART_STATUS = 0
+# EMERGENCY_STATUS = 0
+curr_status = Status.READY
 
 # Background function to poll signal changes from the machine
 def background():
@@ -54,12 +57,12 @@ def background():
     prev_part = PART_STATUS
 
     while True:
-        ROLLING_STATUS = 0
-        ORIENT_STATUS = 0
-        PLACING_STATUS = seek.home_marker()
-        FULL_STATUS = 0
-        EMERGENCY_STATUS = 0
-        PART_STATUS = 0
+        ROLLING_STATUS = button1_line.get_values()[0]
+        ORIENT_STATUS = button2_line.get_values()[0]
+        PLACING_STATUS = button3_line.get_values()[0]
+        FULL_STATUS = button4_line.get_values()[0]
+        EMERGENCY_STATUS = button5_line.get_values()[0]
+        PART_STATUS = button6_line.get_values()[0]
         
         # Comparing previous signal values with current signal values
         if prev_rolling != ROLLING_STATUS:
@@ -230,11 +233,13 @@ class ReorientationApp(QMainWindow):
         widget.setStyleSheet("background-color: rgb(0, 0, 148);") 
 
     def displayPlacingError(self, signal):
+        #Aruco marker cannot be found properly
         widget = PlacingDisplay(self.changeWidget)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displayEmergency(self, signal):
+        # Total printer failure or pnp failure vertical axis
         widget = EmerStopDisplay()
         self.setCentralWidget(widget)
         widget.setStyleSheet(" background-color: rgb(171, 0, 0);")
@@ -264,7 +269,7 @@ class MainPage(QFrame):
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Start Up Completed")
-        textLabel.move(64,85)
+        textLabel.move(170,150)
         font = textLabel.font()
         font.setPointSize(50)
         textLabel.setFont(font)
@@ -272,9 +277,10 @@ class MainPage(QFrame):
         widget.setStyleSheet("color: rgb(255, 255, 255);")
         print(repr(Status.READY))
         
-        self.button1 = QPushButton(self)
-        self.button1.setText("Chamfer Side-Up")
-        self.button1.move(50,300)
+        #self.button1 = QPushButton(self)
+        self.button1 = QPushButton("Chamfer Side-Up", self)
+        #self.button1.setText("Chamfer Side-Up")
+        self.button1.move(100,300)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
         border-style: outset; \
@@ -288,7 +294,7 @@ class MainPage(QFrame):
 
         self.button2 = QPushButton(self)
         self.button2.setText("Chamfer Side-Down")
-        self.button2.move(500,300)
+        self.button2.move(550,300)
         self.button2.resize(100, 300)
         self.button2.setStyleSheet(" background-color: rgb(171, 171, 171); \
         border-style: outset; \
@@ -307,6 +313,7 @@ class MainPage(QFrame):
         print("Button 1 clicked")
         chamfer = 1 # Chamfer side up
         print(repr(Status.SET))
+        curr_status = Status.SET
 
     def button2_clicked(self):
         widget = ErrorDisplay(self.callback)
@@ -315,6 +322,7 @@ class MainPage(QFrame):
         print("Button 2 clicked")
         chamfer = 2 # Chamfer side down
         print(repr(Status.SET))
+        curr_status = Status.SET
 
 # Using Keyboard strokes to represent signals coming from the machine
 class ErrorDisplay(QFrame):
@@ -375,7 +383,7 @@ class RollingDisplay(QFrame):
         textLabel1.adjustSize()
 
         self.button1 = QPushButton(self)
-        self.button1.setText("Error cleared")
+        self.button1.setText("Clear error")
         self.button1.move(300,300)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -426,7 +434,7 @@ class OrientDisplay(QFrame):
         print(repr(Status.INVALID_CHAMFER))
 
         self.button1 = QPushButton(self)
-        self.button1.setText("Understood")
+        self.button1.setText("Acknowledge")
         self.button1.move(300,350)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -451,33 +459,41 @@ class PlacingDisplay(QFrame):
         self.callback = callback
         widget = QWidget(self)
         textLabel = QLabel(widget)
-        textLabel.setText("Error: Part cannot be")
+        textLabel.setText("Error: Aruco markers cannot be found.")
         textLabel.move(64,85) 
         font = textLabel.font()
-        font.setPointSize(50)
+        font.setPointSize(35)
         textLabel.setFont(font)
         textLabel.adjustSize()
         widget.setStyleSheet("color: rgb(250, 250, 250);")
 
         textLabel1 = QLabel(widget)
-        textLabel1.setText("placed onto tray.")
+        textLabel1.setText("Check the following:")
         textLabel1.move(64,150) 
         font = textLabel1.font()
-        font.setPointSize(50)
+        font.setPointSize(35)
         textLabel1.setFont(font)
         textLabel1.adjustSize()
 
         textLabel2 = QLabel(widget)
-        textLabel2.setText("Camera malfunction.")
-        textLabel2.move(64,230) 
+        textLabel2.setText("1) Carrier has top plate.")
+        textLabel2.move(64,215) 
         font = textLabel2.font()
-        font.setPointSize(50)
+        font.setPointSize(35)
         textLabel2.setFont(font)
         textLabel2.adjustSize()
+
+        textLabel3 = QLabel(widget)
+        textLabel3.setText("2) Camera is clean.")
+        textLabel3.move(64,280) 
+        font = textLabel3.font()
+        font.setPointSize(35)
+        textLabel3.setFont(font)
+        textLabel3.adjustSize()
         print(repr(Status.CAMERA_FATAL))
 
         self.button1 = QPushButton(self)
-        self.button1.setText("Error cleared")
+        self.button1.setText("Clear error")
         self.button1.move(300,350)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -545,15 +561,36 @@ class EmerStopDisplay(QFrame):
         super(EmerStopDisplay,self).__init__()
         widget = QWidget(self)
         textLabel = QLabel(widget)
-        textLabel.setText("Emergency Stop")
-        textLabel.move(150,300)
+        textLabel.setText("Fatal error: Printer fails")
+        textLabel.move(64,85) 
         font = textLabel.font()
-        font.setPointSize(70)
+        font.setPointSize(60)
         textLabel.setFont(font)
         textLabel.adjustSize()
         widget.setStyleSheet("color: rgb(250, 250, 250);")
+        textLabel.setAlignment(Qt.AlignCenter)
+        textLabel.setAlignment(Qt.AlignVCenter)
+
+        textLabel2 = QLabel(widget)
+        textLabel2.setText("to complete move.")
+        textLabel2.move(64,170) 
+        font = textLabel2.font()
+        font.setPointSize(60)
+        textLabel2.setFont(font)
+        textLabel2.adjustSize()
+        textLabel2.setAlignment(Qt.AlignCenter)
+        textLabel2.setAlignment(Qt.AlignVCenter)
+
+        textLabel3 = QLabel(widget)
+        textLabel3.setText("Restart the machine.")
+        textLabel3.move(64,350) 
+        font = textLabel3.font()
+        font.setPointSize(60)
+        textLabel3.setFont(font)
+        textLabel3.adjustSize()
+        textLabel3.setAlignment(Qt.AlignVCenter)
+
         print(repr(Status.EMERGENCY))
-        QApplication.quit()
 
 class OrientPartDisplay(QFrame):
     def __init__(self, callback):
@@ -587,7 +624,7 @@ class OrientPartDisplay(QFrame):
         print(repr(Status.IVALID_PART))
 
         self.button1 = QPushButton(self)
-        self.button1.setText("Understood")
+        self.button1.setText("Acknowledge")
         self.button1.move(300,350)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -612,10 +649,10 @@ class PauseDisplay(QFrame):
         self.callback = callback
         widget = QWidget(self)
         textLabel = QLabel(widget)
-        textLabel.setText("Pause")
-        textLabel.move(64,85) 
+        textLabel.setText("Paused")
+        textLabel.move(350,150) 
         font = textLabel.font()
-        font.setPointSize(50)
+        font.setPointSize(70)
         textLabel.setFont(font)
         textLabel.adjustSize()
         widget.setStyleSheet("color: rgb(250, 250, 250);")
@@ -623,7 +660,7 @@ class PauseDisplay(QFrame):
 
         self.button1 = QPushButton(self)
         self.button1.setText("Resume")
-        self.button1.move(50,300)
+        self.button1.move(100,300)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
         border-style: outset; \
@@ -637,7 +674,7 @@ class PauseDisplay(QFrame):
 
         self.button2 = QPushButton(self)
         self.button2.setText("Abort")
-        self.button2.move(500,300)
+        self.button2.move(550,300)
         self.button2.resize(100, 300)
         self.button2.setStyleSheet(" background-color: rgb(171, 171, 171); \
         border-style: outset; \
@@ -656,10 +693,15 @@ class PauseDisplay(QFrame):
         self.callback(widget)
 
     def button2_clicked(self):
-        print("Abort program")
-        QApplication.quit()
+        print("Abort and start over")
+        widget = MainPage(self.callback)
+        print(repr(Status.FIXED))
+        widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+        self.callback(widget)
+        #QApplication.quit()
 
 #if __name__ == '__main__':
+
 def main_HMI():
     bg = threading.Thread(name='background', target=background)
     fg = threading.Thread(name='run_app', target=run_app)
