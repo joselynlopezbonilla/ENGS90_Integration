@@ -384,7 +384,7 @@ class RollingDisplay(QFrame):
 
         self.button1 = QPushButton(self)
         self.button1.setText("Clear error")
-        self.button1.move(300,300)
+        self.button1.move(100,350)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
         border-style: outset; \
@@ -396,8 +396,29 @@ class RollingDisplay(QFrame):
         padding: 6px;")
         self.button1.clicked.connect(self.button1_clicked)
 
+        self.button2 = QPushButton(self)
+        self.button2.setText("Abort")
+        self.button2.move(550,350)
+        self.button2.resize(100, 300)
+        self.button2.setStyleSheet(" background-color: rgb(171, 171, 171); \
+        border-style: outset; \
+        border-width: 2px;\
+        border-radius: 10px; \
+        border-color: beige; \
+        font: bold 30px; \
+        min-width: 10em; \
+        padding: 6px;")
+        self.button2.clicked.connect(self.button2_clicked)
+
     def button1_clicked(self):
         widget = ErrorDisplay(self.callback)
+        print(repr(Status.FIXED))
+        widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+        self.callback(widget)
+
+    def button2_clicked(self):
+        print("Abort and start over")
+        widget = MainPage(self.callback)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
@@ -494,7 +515,7 @@ class PlacingDisplay(QFrame):
 
         self.button1 = QPushButton(self)
         self.button1.setText("Clear error")
-        self.button1.move(300,350)
+        self.button1.move(100,350)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
         border-style: outset; \
@@ -506,8 +527,29 @@ class PlacingDisplay(QFrame):
         padding: 6px;")
         self.button1.clicked.connect(self.button1_clicked)
 
+        self.button2 = QPushButton(self)
+        self.button2.setText("Abort")
+        self.button2.move(550,350)
+        self.button2.resize(100, 300)
+        self.button2.setStyleSheet(" background-color: rgb(171, 171, 171); \
+        border-style: outset; \
+        border-width: 2px;\
+        border-radius: 10px; \
+        border-color: beige; \
+        font: bold 30px; \
+        min-width: 10em; \
+        padding: 6px;")
+        self.button2.clicked.connect(self.button2_clicked)
+
     def button1_clicked(self):
         widget = ErrorDisplay(self.callback)
+        print(repr(Status.FIXED))
+        widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+        self.callback(widget)
+
+    def button2_clicked(self):
+        print("Abort and start over")
+        widget = MainPage(self.callback)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)

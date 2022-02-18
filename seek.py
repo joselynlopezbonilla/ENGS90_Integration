@@ -10,59 +10,6 @@ import gpiod
 import Status
 from HMI import curr_status
 
-chip1=gpiod.Chip('gpiochip1')
-
-gripper_line=chip1.get_lines([18])
-
-gripper_line.request(consumer='pickandplace', type=gpiod.LINE_REQ_DIR_OUT, default_vals=[ 0 ])
-
-
-
-# Seek tolerance
-epsilon = 1.0;
-
-#TODO: use this for smart adjustment of P parameter
-# Length of marker side in mm
-marker_length = 15.875
-# proportionality constant for pixels -> mm
-P = 15
-# Gripper vs camera centerpoint offset
-#gripper_offset = np.array([-42.0, -15.86])
-#gripper_offset = np.array([-54.0, -15.86])
-gripper_offset = np.array([-46.9, -16.2])
-
-print("Press ESC to end loop");
-cv.namedWindow("Preview")
-
-# Changes with testbench hardware
-cam = cv.VideoCapture("/dev/video0")
-ser = serial.Serial('/dev/ttyUSB0', 115200)
-
-cam.set(cv.CAP_PROP_BUFFERSIZE, 1)
-
-# Aruco initialization
-aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
-aruco_params = cv.aruco.DetectorParameters_create()
-
-# Printer initialization
-print("Initializing printer...")
-ser.read_all()
-ser.write('\r\nG1\r\n'.encode())
-sleep(0.5)
-ser.readline()
-ser.read_all()
-ser.write('G91\r\n'.encode())
-print("Printer status: ", ser.readline())
-nominal_current = np.array([0, 0])
-# Currently relative to marker 1.
-offset_guesses = np.array([
-    [-62, 108],
-    [0, 0],
-    [-100, 0],
-    [-140, 80],
-    ])
-offset_aruco_indices = [0, 1, 2, 1];
-
 def get_station_offset(x, index):
     "Expects a normalized x variable"
     off = -25.0;
@@ -270,6 +217,7 @@ station_hole_locs = [
         ];
 
 def main_seek(): 
+    initializeStuff()
     while True:
         frame = get_image()
         offset = [0, 0]
@@ -281,6 +229,7 @@ def main_seek():
         if key == 27:#ESC
             break
         elif key ==  82:#UP
+            print("pressing up")
             offset = [0, 20]
         elif key == 84:#DOWN
             offset = [0, -20]
@@ -313,7 +262,7 @@ def main_seek():
             reset_coords()
             move_rel(offset)
         #elif key == 100:# d
-        if curr_status.name == Status.SET.name:
+        if curr_status.name == "SET":
             print("DEMO MODE ACTIVE")
             while True:
                 # Pickup station
@@ -343,3 +292,55 @@ def main_seek():
             move_rel(offset, rapid=True)
 
     cam.release()
+
+def initializeStuff():
+    chip1=gpiod.Chip('gpiochip1')
+
+    gripper_line=chip1.get_lines([18])
+
+    gripper_line.request(consumer='pickandplace', type=gpiod.LINE_REQ_DIR_OUT, default_vals=[ 0 ])
+
+    # Seek tolerance
+    epsilon = 1.0;
+
+    #TODO: use this for smart adjustment of P parameter
+    # Length of marker side in mm
+    marker_length = 15.875
+    # proportionality constant for pixels -> mm
+    P = 15
+    # Gripper vs camera centerpoint offset
+    #gripper_offset = np.array([-42.0, -15.86])
+    #gripper_offset = np.array([-54.0, -15.86])
+    gripper_offset = np.array([-46.9, -16.2])
+
+    print("Press ESC to end loop");
+    cv.namedWindow("Preview")
+
+    # Changes with testbench hardware
+    cam = cv.VideoCapture("/dev/video0")
+    ser = serial.Serial('/dev/ttyUSB0', 115200)
+
+    cam.set(cv.CAP_PROP_BUFFERSIZE, 1)
+
+    # Aruco initialization
+    aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)
+    aruco_params = cv.aruco.DetectorParameters_create()
+
+    # Printer initialization
+    print("Initializing printer...")
+    ser.read_all()
+    ser.write('\r\nG1\r\n'.encode())
+    sleep(0.5)
+    ser.readline()
+    ser.read_all()
+    ser.write('G91\r\n'.encode())
+    print("Printer status: ", ser.readline())
+    nominal_current = np.array([0, 0])
+    # Currently relative to marker 1.
+    offset_guesses = np.array([
+        [-62, 108],
+        [0, 0],
+        [-100, 0],
+        [-140, 80],
+        ])
+    offset_aruco_indices = [0, 1, 2, 1];
