@@ -17,6 +17,7 @@ class Status(Enum):
     IVALID_PART = "Warning: No part detected." #Done
     INVALID_CHAMFER = "Warning: No chamfer detected." #Done
     CAMERA_FATAL = "Error: Camera visualization malfunction." #Done
+    SPLITTER_STUCK = "Error: Ball seat stuck in splitter" #Done
 
     # Warnings and errors for orienting
     #Ian 's machine
