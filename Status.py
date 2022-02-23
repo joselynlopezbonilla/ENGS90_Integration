@@ -18,6 +18,7 @@ class Status(Enum):
     INVALID_CHAMFER = "Warning: No chamfer detected." #Done
     CAMERA_FATAL = "Error: Camera visualization malfunction." #Done
     SPLITTER_STUCK = "Error: Ball seat stuck in splitter" #Done
+    PICKER = "Error: Picker cannot move along z-axis"
 
     # Warnings and errors for orienting
     #Ian 's machine

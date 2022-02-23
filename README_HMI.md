@@ -17,12 +17,15 @@ class SplashScreen():
 class MainPage(QFrame):
 class ErrorDisplay(QFrame):
 class RollingDisplay(QFrame):
-class OrientDisplay(QFrame):
+class InterlockDisplay(QFrame):
 class PlacingDisplay(QFrame):
 class FullDisplay(QFrame):
 class EmerStopDisplay(QFrame):
-class OrientPartDisplay(QFrame):
+class ChamferPartDisplay(QFrame):
 class PauseDisplay(QFrame):
+class SplitterDisplay(QFrame):
+class PickerDisplay(QFrame):
+class SignalsDisplay(QFrame):
 ```
 
 The *HMI* module also exports the following main functions:
@@ -44,17 +47,24 @@ The `MainPage` class displays a widget where the user can define the orientation
 
 The `ErrorDisplay` class displays a widget that waits for an update signal. This is the default widget screen, and the user may pause normal operation. The class contains a function `button1_clicked` to aid with the functionality of buttons on the display.
 
-The `RollingDisplay` class displays an error widget that signifies a part was not able to be placed in a rolling manner. The user will be able to dismiss the error with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
+The `RollingDisplay` class displays an error widget that signifies a part was not able to be placed in a rolling manner or that the rolling filter is stuck. The user will be able to dismiss the error with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
 
-The `OrientDisplay` class displays a warning widget that signifies a chamfer was not detected. The user will be able to dismiss the warning with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
+The `InterlockDisplay` class displays an error widget that signifies the enclosure door is open. The user will be able to dismiss the warning with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
 
 The `PlacingDisplay` class displays an error widget that signifies a part was not able to be placed onto the tray. The user will be able to dismiss error with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
 
 The `FullDisplay` class displays an done widget that signifies a tray has been completed. the user will be able to dismiss the update with a button press on the screen once a new tray has been placed. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
 
-The `OrientPartDisplay` class displays a warning widget that signifies a part cannot be oriented appropriately. The user will be able to dismiss warning with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
+The `ChamferPartDisplay` class displays an error widget that signifies a chamfer cannot be detected. The user will be able to dismiss error with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
 
 The `PauseDisplay` class displays a widget when the user has indicated to pause the machine. User will be able to resume or abort the task. The class contains two functions `button1_clicked` and `button2_clicked` to aid with the functionality of buttons on the display.
+
+The `SplitterDisplay` class displays an error widget that signifies a ball seat is not found after the splitter. The user will be able to dismiss error with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
+
+The `PickerDisplay` class displays an error widget that signifies the picker cannot move along the z-axis. The user will be able to dismiss error with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
+
+
+All display functions have an internal function `button3_clicked` that connects the button press to the tabulation of signals. 
 
 The `background` function polls the signals from the machine.
 

@@ -21,6 +21,7 @@ button4_line=chip1.get_lines([ 8 ]) # Pin 19
 button5_line=chip1.get_lines([ 11 ]) # Pin 27
 button6_line=chip4.get_lines([ 27 ]) # Pin 29
 button7_line=chip4.get_lines([ 28 ]) # Pin 31
+button8_line=chip1.get_lines([ 13 ]) # Pin 26
 
 LED_line.request(consumer='foobar', type=gpiod.LINE_REQ_DIR_OUT, default_vals=[ 0 ])
 button1_line.request(consumer='button1', type=gpiod.LINE_REQ_DIR_IN)
@@ -30,15 +31,17 @@ button4_line.request(consumer='button4', type=gpiod.LINE_REQ_DIR_IN)
 button5_line.request(consumer='button5', type=gpiod.LINE_REQ_DIR_IN)
 button6_line.request(consumer='button6', type=gpiod.LINE_REQ_DIR_IN)
 button7_line.request(consumer='button7', type=gpiod.LINE_REQ_DIR_IN)
+button8_line.request(consumer='button8', type=gpiod.LINE_REQ_DIR_IN)
 
 APPLICATION = None
 ROLLING_STATUS = button1_line.get_values()[0]
-ORIENT_STATUS = button2_line.get_values()[0]
+INTERLOCK_STATUS = button2_line.get_values()[0]
 PLACING_STATUS = button3_line.get_values()[0]
 FULL_STATUS = button4_line.get_values()[0]
 EMERGENCY_STATUS = button5_line.get_values()[0]
 PART_STATUS = button6_line.get_values()[0]
 SPLITTER_STATUS = button7_line.get_values()[0]
+PICKER_STATUS = button8_line.get_values()[0]
 
 
 # APPLICATION = None
@@ -52,33 +55,35 @@ curr_status = Status.READY
 
 # Background function to poll signal changes from the machine
 def background():
-    global ROLLING_STATUS, ORIENT_STATUS, PLACING_STATUS, FULL_STATUS, EMERGENCY_STATUS, PART_STATUS, SPLITTER_STATUS
+    global ROLLING_STATUS, INTERLOCK_STATUS, PLACING_STATUS, FULL_STATUS, EMERGENCY_STATUS, PART_STATUS, SPLITTER_STATUS, PICKER_STATUS
     prev_rolling = ROLLING_STATUS
-    prev_orient = ORIENT_STATUS
+    prev_interlock = INTERLOCK_STATUS
     prev_placing = PLACING_STATUS
     prev_full = FULL_STATUS
     prev_emergency = EMERGENCY_STATUS
     prev_part = PART_STATUS
     prev_splitter = SPLITTER_STATUS
+    prev_picker = PICKER_STATUS
 
     while True:
         ROLLING_STATUS = button1_line.get_values()[0]
-        ORIENT_STATUS = button2_line.get_values()[0]
+        INTERLOCK_STATUS = button2_line.get_values()[0]
         PLACING_STATUS = button3_line.get_values()[0]
         FULL_STATUS = button4_line.get_values()[0]
         EMERGENCY_STATUS = button5_line.get_values()[0]
         PART_STATUS = button6_line.get_values()[0]
         SPLITTER_STATUS = button7_line.get_values()[0]
+        PICKER_STATUS = button8_line.get_values()[0]
         
         # Comparing previous signal values with current signal values
         if prev_rolling != ROLLING_STATUS:
             if ROLLING_STATUS == 1:
                 APPLICATION.ROLL_ERROR = ROLLING_STATUS
             prev_rolling = ROLLING_STATUS
-        elif prev_orient != ORIENT_STATUS:
-            if ORIENT_STATUS == 1:
-                APPLICATION.ORIENT_ERROR = ORIENT_STATUS
-            prev_orient = ORIENT_STATUS        
+        elif prev_interlock != INTERLOCK_STATUS:
+            if INTERLOCK_STATUS == 1:
+                APPLICATION.INTERLOCK_ERROR = INTERLOCK_STATUS
+            prev_interlock = INTERLOCK_STATUS        
         elif prev_placing != PLACING_STATUS:
             if PLACING_STATUS == 1:
                 APPLICATION.PLACING_ERROR = PLACING_STATUS
@@ -99,6 +104,10 @@ def background():
             if SPLITTER_STATUS == 1:
                 APPLICATION.SPLITTER_ERROR = SPLITTER_STATUS
             prev_splitter = SPLITTER_STATUS
+        elif prev_picker != PICKER_STATUS:
+            if PICKER_STATUS == 1:
+                APPLICATION.PICKER_ERROR = PICKER_STATUS
+            prev_picker = PICKER_STATUS
         time.sleep(.1)
 
 # Will begin running the entire HMI application
@@ -113,11 +122,12 @@ def run_app():
     app.exec()
 
 class ReorientationApp(QMainWindow):
+    # Declaring all the signals to be polled
     rolling_signal = pyqtSignal(str, int)
     ROLL = "ROLL"
 
-    orienting_signal = pyqtSignal(str, int)
-    ORIENT = "ORIENT"
+    interlock_signal = pyqtSignal(str, int)
+    INTERLOCK = "INTERLOCK"
 
     placing_signal = pyqtSignal(str, int)
     PLACING = "PLACING"
@@ -134,17 +144,23 @@ class ReorientationApp(QMainWindow):
     splitter_signal = pyqtSignal(str, int)
     SPLITTER = "SPLITTER"
 
+    picker_signal = pyqtSignal(str, int)
+    PICKER = "PICKER"
+
     def __init__(self):
         super(ReorientationApp, self).__init__()
         widget = MainPage(self.changeWidget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+
+        # Connecting the signals to its handler
         self.rolling_signal.connect(self.handleRMSignal)
-        self.orienting_signal.connect(self.handleOMSignal)
+        self.interlock_signal.connect(self.handleIMSignal)
         self.placing_signal.connect(self.handlePMSignal)
         self.full_signal.connect(self.handleFMSignal)
         self.emergency_signal.connect(self.handleEMSignal)
         self.part_signal.connect(self.handlePartMSignal)
         self.splitter_signal.connect(self.handlePartSMSignal)
+        self.picker_signal.connect(self.handlePickerMSignal)
 
         self.setCentralWidget(widget)
         self.showFullScreen()
@@ -167,17 +183,16 @@ class ReorientationApp(QMainWindow):
         self.displayRollingError(value)
 
     @property
-    def ORIENT_ERROR(self):
-        return self._ORIENT_STATUS
+    def INTERLOCK_ERROR(self):
+        return self._INTERLOCK_STATUS
 
-    @ORIENT_ERROR.setter
-    def ORIENT_ERROR(self, value):
-        self._ORIENT_STATUS = value
-        print("setting and emitting")
-        self.orienting_signal.emit(self.ORIENT, self._ORIENT_STATUS)
+    @INTERLOCK_ERROR.setter
+    def INTERLOCK_ERROR(self, value):
+        self._INTERLOCK_STATUS = value
+        self.interlock_signal.emit(self.INTERLOCK, self._INTERLOCK_STATUS)
 
-    def handleOMSignal(self, name, value):
-        self.displayOrientError(value)
+    def handleIMSignal(self, name, value):
+        self.displayInterlockError(value)
 
     @property
     def PLACING_ERROR(self):
@@ -244,12 +259,25 @@ class ReorientationApp(QMainWindow):
     def handlePartSMSignal(self, name, value):
         self.displaySplitterError(value)
 
+
+    @property
+    def PICKER_ERROR(self):
+        return self._PICKER_STATUS
+
+    @PICKER_ERROR.setter
+    def PICKER_ERROR(self, value):
+        self._PICKER_STATUS = value
+        self.picker_signal.emit(self.PICKER, self._PICKER_STATUS)
+
+    def handlePickerMSignal(self, name, value):
+        self.displayPickerError(value)
+
     def displayRollingError(self, signal):
         widget = RollingDisplay(self.changeWidget)
         widget.setStyleSheet(" background-color: rgb(171, 0, 0);")
         self.setCentralWidget(widget)
 
-    def displayOrientError(self, signal):
+    def displayInterlockError(self, signal):
         widget = InterlockDisplay(self.changeWidget)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
@@ -281,6 +309,12 @@ class ReorientationApp(QMainWindow):
     def displaySplitterError(self, signal):
         # No ball seat detected after the splitter
         widget = SplitterDisplay(self.changeWidget)
+        self.setCentralWidget(widget)
+        widget.setStyleSheet("background-color: rgb(171, 0, 0);")
+
+    def displayPickerError(self, signal):
+        # Picker cannot move along z-axis
+        widget = PickerDisplay(self.changeWidget)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
@@ -1139,6 +1173,58 @@ class SplitterDisplay(QFrame):
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
+class PickerDisplay(QFrame):
+    def __init__(self, callback):
+        super(PickerDisplay,self).__init__()
+        self.callback = callback
+        widget = QWidget(self)
+        textLabel = QLabel(widget)
+        textLabel.setText("Error: Picker cannot move")
+        textLabel.move(64,70) 
+        font = textLabel.font()
+        font.setPointSize(50)
+        textLabel.setFont(font)
+        textLabel.adjustSize()
+        widget.setStyleSheet("color: rgb(250, 250, 250);")
+
+        textLabel2 = QLabel(widget)
+        textLabel2.setText("along z-axis.")
+        textLabel2.move(64,150) 
+        font = textLabel2.font()
+        font.setPointSize(50)
+        textLabel2.setFont(font)
+        textLabel2.adjustSize()
+        
+        textLabel3 = QLabel(widget)
+        textLabel3.setText("Restart the printer.")
+        textLabel3.move(64,230) 
+        font = textLabel3.font()
+        font.setPointSize(50)
+        textLabel3.setFont(font)
+        textLabel3.adjustSize()
+
+        print(repr(Status.PICKER))
+
+        self.button3 = QPushButton(self)
+        self.button3.setText("Signal Statuses")
+        self.button3.move(600,650)
+        self.button3.resize(100, 100)
+        self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
+        border-style: outset; \
+        border-width: 2px;\
+        border-radius: 10px; \
+        border-color: beige; \
+        font: bold 30px; \
+        min-width: 10em; \
+        padding: 6px;")
+        self.button3.clicked.connect(self.button3_clicked)
+    
+    def button3_clicked(self):
+        widget = SignalsDisplay(self.callback)
+        self.callback(widget)
+        widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+        print("Button 3 clicked")
+
 # SignalsDisplay provides live updates of all signals
 class SignalsDisplay(QFrame):
     def __init__(self, callback):
@@ -1179,7 +1265,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget = QTableWidget()
 
         #Row count
-        self.tableWidget.setRowCount(7)
+        self.tableWidget.setRowCount(9)
 
         #Column count
         self.tableWidget.setColumnCount(2)
@@ -1187,7 +1273,7 @@ class SignalsDisplay(QFrame):
         item = QTableWidgetItem("Signal Name")
         self.tableWidget.setItem(0,0,item)
         font = QtGui.QFont()
-        font.setPointSize(30)
+        font.setPointSize(20)
         font.setBold(True)
         font.setWeight(75)
         item.setFont(font)
@@ -1196,7 +1282,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(0,1,item)
         item.setFont(font)
 
-        item = QTableWidgetItem("Rolling Signal")
+        item = QTableWidgetItem("No ball seat after rolling filter")
         self.tableWidget.setItem(1,0,item)
         font.setBold(False)
         item.setFont(font)
@@ -1205,15 +1291,15 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(1,1,item)
         item.setFont(font)
 
-        item = QTableWidgetItem("Orient Signal")
+        item = QTableWidgetItem("Enclosure door is open")
         self.tableWidget.setItem(2,0, item)
         item.setFont(font)
 
-        item = QTableWidgetItem(str(ORIENT_STATUS))
+        item = QTableWidgetItem(str(INTERLOCK_STATUS))
         self.tableWidget.setItem(2,1,item)
         item.setFont(font)
 
-        item = QTableWidgetItem("Placing Signal")
+        item = QTableWidgetItem("Aruco markers cannot be found")
         self.tableWidget.setItem(3,0,item)
         item.setFont(font)
 
@@ -1221,7 +1307,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(3,1,item)
         item.setFont(font)
 
-        item = QTableWidgetItem("Full Tray Signal")
+        item = QTableWidgetItem("Loading tray is full")
         self.tableWidget.setItem(4,0,item)
         item.setFont(font)
 
@@ -1229,7 +1315,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(4,1,item)
         item.setFont(font)
 
-        item = QTableWidgetItem("Emergency Status")
+        item = QTableWidgetItem("Printer cannot complete move")
         self.tableWidget.setItem(5,0,item)
         item.setFont(font)
 
@@ -1237,12 +1323,28 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(5,1,item)
         item.setFont(font)
 
-        item = QTableWidgetItem("Part Status")
+        item = QTableWidgetItem("Chamfer is not detected")
         self.tableWidget.setItem(6,0,item)
         item.setFont(font)
 
         item =QTableWidgetItem(str(PART_STATUS))
         self.tableWidget.setItem(6,1,item)
+        item.setFont(font)
+
+        item = QTableWidgetItem("Ball seat is stuck in splitter")
+        self.tableWidget.setItem(7,0,item)
+        item.setFont(font)
+
+        item = QTableWidgetItem(str(SPLITTER_STATUS))
+        self.tableWidget.setItem(7,1,item)
+        item.setFont(font)
+
+        item = QTableWidgetItem("Picker cannot move in z-axis")
+        self.tableWidget.setItem(8,0,item)
+        item.setFont(font)
+
+        item =QTableWidgetItem(str(PICKER_STATUS))
+        self.tableWidget.setItem(8,1,item)
         item.setFont(font)
 
         #Table will fit the screen horizontally
@@ -1259,11 +1361,19 @@ class SignalsDisplay(QFrame):
         "}")
 
         self.tableWidget.resizeRowsToContents()
+        # # setting current item
+        # self.tableWidget.setCurrentItem(item)
+        # # getting item changed signal
+        # self.tableWidget.currentItemChanged.connect(self.handlePartSignal)
 
     def button1_clicked(self):
         widget = ErrorDisplay(self.callback)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
+    
+    def handlePartSignal(self):
+        item =QTableWidgetItem(str(PART_STATUS))
+        self.tableWidget.setItem(6,1,item)
 
 if __name__ == '__main__':
 
