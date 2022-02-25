@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from Status import Status
 import threading
 import gpiod
-#import seek
+import seek
 
 chip1=gpiod.Chip('gpiochip1')
 chip4=gpiod.Chip('gpiochip4')
@@ -52,6 +52,7 @@ PICKER_STATUS = button8_line.get_values()[0]
 # PART_STATUS = 0
 # EMERGENCY_STATUS = 0
 curr_status = Status.READY
+# SCREEN = None
 
 # Background function to poll signal changes from the machine
 def background():
@@ -112,11 +113,14 @@ def background():
 
 # Will begin running the entire HMI application
 def run_app():
+    # global APPLICATION, SCREEN
     global APPLICATION
     app = QApplication(sys.argv)
+    # SCREEN = app.primaryScreen()
     splash = SplashScreen()
     time.sleep(1) # fake ready signal after 1 secs
-    APPLICATION = ReorientationApp()
+    machine = seek.Machine()
+    APPLICATION = ReorientationApp(machine)
     APPLICATION.show()
     splash.finish(APPLICATION)
     app.exec()
@@ -147,10 +151,12 @@ class ReorientationApp(QMainWindow):
     picker_signal = pyqtSignal(str, int)
     PICKER = "PICKER"
 
-    def __init__(self):
+    def __init__(self, machine):
         super(ReorientationApp, self).__init__()
-        widget = MainPage(self.changeWidget)
+        widget = MainPage(self.changeWidget, machine)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+
+        self.machine = machine
 
         # Connecting the signals to its handler
         self.rolling_signal.connect(self.handleRMSignal)
@@ -273,48 +279,48 @@ class ReorientationApp(QMainWindow):
         self.displayPickerError(value)
 
     def displayRollingError(self, signal):
-        widget = RollingDisplay(self.changeWidget)
+        widget = RollingDisplay(self.changeWidget, self.machine)
         widget.setStyleSheet(" background-color: rgb(171, 0, 0);")
         self.setCentralWidget(widget)
 
     def displayInterlockError(self, signal):
-        widget = InterlockDisplay(self.changeWidget)
+        widget = InterlockDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displayFullTray(self, signal):
-        widget = FullDisplay(self.changeWidget)
+        widget = FullDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(0, 0, 148);") 
 
     def displayPlacingError(self, signal):
         #Aruco marker cannot be found properly
-        widget = PlacingDisplay(self.changeWidget)
+        widget = PlacingDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displayEmergency(self, signal):
         # Total printer failure or pnp failure vertical axis
-        widget = EmerStopDisplay(self.changeWidget)
+        widget = EmerStopDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet(" background-color: rgb(171, 0, 0);")
 
     def displayPartError(self, signal):
         # Detection warning
         # No part detected
-        widget = ChamferPartDisplay(self.changeWidget)
+        widget = ChamferPartDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displaySplitterError(self, signal):
         # No ball seat detected after the splitter
-        widget = SplitterDisplay(self.changeWidget)
+        widget = SplitterDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displayPickerError(self, signal):
         # Picker cannot move along z-axis
-        widget = PickerDisplay(self.changeWidget)
+        widget = PickerDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
@@ -330,9 +336,10 @@ class SplashScreen():
 
 
 class MainPage(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(MainPage,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Start Up Completed")
@@ -388,34 +395,39 @@ class MainPage(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 1 clicked")
         chamfer = 1 # Chamfer side up
         print(repr(Status.SET))
         curr_status = Status.SET
+        machine_run = threading.Thread(name='run_this_shit', target=self.machine.run_demo)
+        machine_run.start()
 
     def button2_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 2 clicked")
         chamfer = 2 # Chamfer side down
         print(repr(Status.SET))
         curr_status = Status.SET
+        machine_run = threading.Thread(name='run_this_shit', target=self.machine.run_demo)
+        machine_run.start()
 
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 # Using Keyboard strokes to represent signals coming from the machine
 class ErrorDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(ErrorDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Machine in use")
@@ -456,21 +468,22 @@ class ErrorDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = PauseDisplay(self.callback)
+        widget = PauseDisplay(self.callback, self.machine)
         #print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(171, 94, 0);")
         self.callback(widget)
 
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class RollingDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(RollingDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Error: No ball seat presented to the")
@@ -549,28 +562,29 @@ class RollingDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button2_clicked(self):
         print("Abort and start over")
-        widget = MainPage(self.callback)
+        widget = MainPage(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class InterlockDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(InterlockDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Error: Interlock is open.")
@@ -639,21 +653,22 @@ class InterlockDisplay(QFrame):
 
     def button2_clicked(self):
         print("Abort and start over")
-        widget = MainPage(self.callback)
+        widget = MainPage(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class PlacingDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(PlacingDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Error: Aruco markers cannot be found.")
@@ -732,28 +747,29 @@ class PlacingDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button2_clicked(self):
         print("Abort and start over")
-        widget = MainPage(self.callback)
+        widget = MainPage(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class FullDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(FullDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Finish: Loading tray is full.")
@@ -802,21 +818,22 @@ class FullDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class EmerStopDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(EmerStopDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Error: Printer fails to complete move")
@@ -897,15 +914,16 @@ class EmerStopDisplay(QFrame):
         print(repr(Status.EMERGENCY))
 
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class ChamferPartDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(ChamferPartDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Error: No chamfer detected")
@@ -985,28 +1003,29 @@ class ChamferPartDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button2_clicked(self):
         print("Abort and start over")
-        widget = MainPage(self.callback)
+        widget = MainPage(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
     
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class PauseDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(PauseDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Paused")
@@ -1061,29 +1080,30 @@ class PauseDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button2_clicked(self):
         print("Abort and start over")
-        widget = MainPage(self.callback)
+        widget = MainPage(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
     
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 
 class SplitterDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(SplitterDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Error: No ball seat detected after split")
@@ -1155,28 +1175,29 @@ class SplitterDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
 
     def button2_clicked(self):
         print("Abort and start over")
-        widget = MainPage(self.callback)
+        widget = MainPage(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
     
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 class PickerDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(PickerDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Error: Picker cannot move")
@@ -1220,16 +1241,17 @@ class PickerDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
     
     def button3_clicked(self):
-        widget = SignalsDisplay(self.callback)
+        widget = SignalsDisplay(self.callback, self.machine)
         self.callback(widget)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
 # SignalsDisplay provides live updates of all signals
 class SignalsDisplay(QFrame):
-    def __init__(self, callback):
+    def __init__(self, callback, machine):
         super(SignalsDisplay,self).__init__()
         self.callback = callback
+        self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
         textLabel.setText("Signal Statuses")
@@ -1256,13 +1278,16 @@ class SignalsDisplay(QFrame):
         self.button1.clicked.connect(self.button1_clicked)
 
         self.createTable()
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.tableWidget)
-        self.setLayout(self.layout)
+        # self.layout = QVBoxLayout()
+        # self.layout.addWidget(self.tableWidget)
+        # self.setLayout(self.layout)
 
 	#Create table
     def createTable(self):
-        self.tableWidget = QTableWidget()
+        # global SCREEN
+        self.tableWidget = QTableWidget(self)
+        self.tableWidget.setFixedSize(900, 450)
+        self.tableWidget.move(64, 180)
 
         #Row count
         self.tableWidget.setRowCount(9)
@@ -1270,7 +1295,7 @@ class SignalsDisplay(QFrame):
         #Column count
         self.tableWidget.setColumnCount(2)
 
-        item = QTableWidgetItem("Signal Name")
+        item = QTableWidgetItem("Status")
         self.tableWidget.setItem(0,0,item)
         font = QtGui.QFont()
         font.setPointSize(20)
@@ -1278,7 +1303,7 @@ class SignalsDisplay(QFrame):
         font.setWeight(75)
         item.setFont(font)
 
-        item = QTableWidgetItem("Value")
+        item = QTableWidgetItem("State")
         self.tableWidget.setItem(0,1,item)
         item.setFont(font)
 
@@ -1287,7 +1312,7 @@ class SignalsDisplay(QFrame):
         font.setBold(False)
         item.setFont(font)
         
-        item = QTableWidgetItem(str(ROLLING_STATUS))
+        item = QTableWidgetItem(str(bool(ROLLING_STATUS)))
         self.tableWidget.setItem(1,1,item)
         item.setFont(font)
 
@@ -1295,7 +1320,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(2,0, item)
         item.setFont(font)
 
-        item = QTableWidgetItem(str(INTERLOCK_STATUS))
+        item = QTableWidgetItem(str(bool(INTERLOCK_STATUS)))
         self.tableWidget.setItem(2,1,item)
         item.setFont(font)
 
@@ -1303,7 +1328,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(3,0,item)
         item.setFont(font)
 
-        item = QTableWidgetItem(str(PLACING_STATUS))
+        item = QTableWidgetItem(str(bool(PLACING_STATUS)))
         self.tableWidget.setItem(3,1,item)
         item.setFont(font)
 
@@ -1311,7 +1336,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(4,0,item)
         item.setFont(font)
 
-        item = QTableWidgetItem(str(FULL_STATUS))
+        item = QTableWidgetItem(str(bool(FULL_STATUS)))
         self.tableWidget.setItem(4,1,item)
         item.setFont(font)
 
@@ -1319,7 +1344,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(5,0,item)
         item.setFont(font)
 
-        item = QTableWidgetItem(str(EMERGENCY_STATUS))
+        item = QTableWidgetItem(str(bool(EMERGENCY_STATUS)))
         self.tableWidget.setItem(5,1,item)
         item.setFont(font)
 
@@ -1327,7 +1352,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(6,0,item)
         item.setFont(font)
 
-        item =QTableWidgetItem(str(PART_STATUS))
+        item =QTableWidgetItem(str(bool(PART_STATUS)))
         self.tableWidget.setItem(6,1,item)
         item.setFont(font)
 
@@ -1335,7 +1360,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(7,0,item)
         item.setFont(font)
 
-        item = QTableWidgetItem(str(SPLITTER_STATUS))
+        item = QTableWidgetItem(str(bool(SPLITTER_STATUS)))
         self.tableWidget.setItem(7,1,item)
         item.setFont(font)
 
@@ -1343,7 +1368,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(8,0,item)
         item.setFont(font)
 
-        item =QTableWidgetItem(str(PICKER_STATUS))
+        item =QTableWidgetItem(str(bool(PICKER_STATUS)))
         self.tableWidget.setItem(8,1,item)
         item.setFont(font)
 
@@ -1360,6 +1385,13 @@ class SignalsDisplay(QFrame):
         "\n"
         "}")
 
+        
+        # x = SCREEN.size().width()
+        # y = SCREEN.size().height()
+        # self.setMaximumHeight(.5 * y)
+        # self.setMaximumWidth(1 * x)
+        # self.setMinimumHeight(1 * y)
+        # self.setMinimumWidth(.5 * x)
         self.tableWidget.resizeRowsToContents()
         # # setting current item
         # self.tableWidget.setCurrentItem(item)
@@ -1367,7 +1399,7 @@ class SignalsDisplay(QFrame):
         # self.tableWidget.currentItemChanged.connect(self.handlePartSignal)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
     
