@@ -1,0 +1,9 @@
+# Joselyn Lopez Bonilla
+## ENGS90 Winter 2022
+
+### Status
+
+The Status module for the Reorientation Machine lists all the machine states within a class. 
+```python
+class Status(Enum):
+```

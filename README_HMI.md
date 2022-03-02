@@ -26,6 +26,8 @@ class PauseDisplay(QFrame):
 class SplitterDisplay(QFrame):
 class PickerDisplay(QFrame):
 class SignalsDisplay(QFrame):
+class SerialDisplay(QFrame):
+class PrinterDisplay(QFrame):   
 ```
 
 The *HMI* module also exports the following main functions:
@@ -39,7 +41,7 @@ def main_HMI():
 
 We implement this HMI as a series of classes and functions.
 
-The `ReorientationApp` class assigns signals from other modules to a PYQT5 signal. It does this by using the following functions: `handleRMSignal`, `handleOMSignal`, `handlePMSignal`, `handleFMSignal`, `handleEMSignal`, and `handlePartMSignal`. Each of these functions then call their respective widgets to be displayed for the user on the HMI screen. 
+The `ReorientationApp` class assigns signals from other modules to a PYQT5 signal. It does this by using the following functions: `handleRMSignal`, `handleOMSignal`, `handlePMSignal`, `handleFMSignal`, `handleEMSignal`, `handlePartMSignal`, `handlePartSMSignal`, `handlePickerMSignal`, `handleSerialSignal`, and `handlePrinterSignal`. Each of these functions then call their respective widgets to be displayed for the user on the HMI screen. 
 
 The `SplashScreen` class displays a widget as the machine powers up.
 
@@ -63,6 +65,9 @@ The `SplitterDisplay` class displays an error widget that signifies a ball seat 
 
 The `PickerDisplay` class displays an error widget that signifies the picker cannot move along the z-axis. The user will be able to dismiss error with a button press on the screen. The class contains a function `button1_clicked` to aid with the functionality of the button on the display.
 
+The `SerialDisplay` class displays an error widget that signifies the serial port is incorrect. The user will need to edit `seek.py` and rerun the program. 
+
+The `PrinterDisplay` class displays an error widget that signifies when the machine is in the wrong internal state. The user will need to restart the machine. 
 
 All display functions have an internal function `button3_clicked` that connects the button press to the tabulation of signals. 
 
