@@ -19,10 +19,6 @@ class Status(Enum):
     CAMERA_FATAL = "Error: Camera visualization malfunction." #Done
     SPLITTER_STUCK = "Error: Ball seat stuck in splitter" #Done
     PICKER = "Error: Picker cannot move along z-axis"
-
-    # Warnings and errors for orienting
-    #Ian 's machine
-    #Ball seats can get stuck
-    #Ball seats are not introduced to it properly
-    #Gustavo's machine is less likely to experience errors
+    SERIAL = "Error: Serial port is incorrect"
+    PRINTER = "Error: Printer is in the wrong state"
 

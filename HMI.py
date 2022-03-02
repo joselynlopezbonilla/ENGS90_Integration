@@ -1,8 +1,8 @@
 from curses.ascii import EM
 import sys
 import time
+from xmlrpc.client import INTERNAL_ERROR
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QToolButton, QMainWindow, QSplashScreen, QFrame, QTableWidget, QHeaderView,  QTableWidgetItem, QVBoxLayout, QHeaderView 
-#from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette
 from PyQt5 import QtGui
 from PyQt5.QtCore import Qt, pyqtSignal
 from Status import Status
@@ -22,6 +22,8 @@ button5_line=chip1.get_lines([ 11 ]) # Pin 27
 button6_line=chip4.get_lines([ 27 ]) # Pin 29
 button7_line=chip4.get_lines([ 28 ]) # Pin 31
 button8_line=chip1.get_lines([ 13 ]) # Pin 26
+button9_line=chip1.get_lines([ 22 ]) # Pin 11
+button10_line=chip1.get_lines([ 1 ]) # Pin 15
 
 LED_line.request(consumer='foobar', type=gpiod.LINE_REQ_DIR_OUT, default_vals=[ 0 ])
 button1_line.request(consumer='button1', type=gpiod.LINE_REQ_DIR_IN)
@@ -32,6 +34,8 @@ button5_line.request(consumer='button5', type=gpiod.LINE_REQ_DIR_IN)
 button6_line.request(consumer='button6', type=gpiod.LINE_REQ_DIR_IN)
 button7_line.request(consumer='button7', type=gpiod.LINE_REQ_DIR_IN)
 button8_line.request(consumer='button8', type=gpiod.LINE_REQ_DIR_IN)
+button9_line.request(consumer='button9', type=gpiod.LINE_REQ_DIR_IN)
+button10_line.request(consumer='button10', type=gpiod.LINE_REQ_DIR_IN)
 
 APPLICATION = None
 ROLLING_STATUS = button1_line.get_values()[0]
@@ -42,6 +46,8 @@ EMERGENCY_STATUS = button5_line.get_values()[0]
 PART_STATUS = button6_line.get_values()[0]
 SPLITTER_STATUS = button7_line.get_values()[0]
 PICKER_STATUS = button8_line.get_values()[0]
+SERIAL_STATUS = button9_line.get_values()[0]
+PRINTER_STATUS = button10_line.get_values()[0]
 
 
 # APPLICATION = None
@@ -52,11 +58,10 @@ PICKER_STATUS = button8_line.get_values()[0]
 # PART_STATUS = 0
 # EMERGENCY_STATUS = 0
 curr_status = Status.READY
-# SCREEN = None
 
 # Background function to poll signal changes from the machine
 def background():
-    global ROLLING_STATUS, INTERLOCK_STATUS, PLACING_STATUS, FULL_STATUS, EMERGENCY_STATUS, PART_STATUS, SPLITTER_STATUS, PICKER_STATUS
+    global ROLLING_STATUS, INTERLOCK_STATUS, PLACING_STATUS, FULL_STATUS, EMERGENCY_STATUS, PART_STATUS, SPLITTER_STATUS, PICKER_STATUS, SERIAL_STATUS, PRINTER_STATUS
     prev_rolling = ROLLING_STATUS
     prev_interlock = INTERLOCK_STATUS
     prev_placing = PLACING_STATUS
@@ -65,6 +70,8 @@ def background():
     prev_part = PART_STATUS
     prev_splitter = SPLITTER_STATUS
     prev_picker = PICKER_STATUS
+    prev_serial = SERIAL_STATUS
+    prev_printer = PRINTER_STATUS
 
     while True:
         ROLLING_STATUS = button1_line.get_values()[0]
@@ -75,6 +82,8 @@ def background():
         PART_STATUS = button6_line.get_values()[0]
         SPLITTER_STATUS = button7_line.get_values()[0]
         PICKER_STATUS = button8_line.get_values()[0]
+        SERIAL_STATUS = button9_line.get_values()[0]
+        PRINTER_STATUS = button10_line.get_values()[0]
         
         # Comparing previous signal values with current signal values
         if prev_rolling != ROLLING_STATUS:
@@ -109,6 +118,14 @@ def background():
             if PICKER_STATUS == 1:
                 APPLICATION.PICKER_ERROR = PICKER_STATUS
             prev_picker = PICKER_STATUS
+        elif prev_serial != SERIAL_STATUS:
+            if SERIAL_STATUS == 1:
+                APPLICATION.SERIAL_ERROR = SERIAL_STATUS
+            prev_serial = SERIAL_STATUS
+        elif prev_printer != PRINTER_STATUS:
+            if PRINTER_STATUS == 1:
+                APPLICATION.PRINTER_ERROR = PRINTER_STATUS
+            prev_printer = PRINTER_STATUS
         time.sleep(.1)
 
 # Will begin running the entire HMI application
@@ -151,6 +168,12 @@ class ReorientationApp(QMainWindow):
     picker_signal = pyqtSignal(str, int)
     PICKER = "PICKER"
 
+    serial_signal = pyqtSignal(str, int)
+    SERIAL = "SERIAL"
+
+    printer_signal = pyqtSignal(str, int)
+    PRINTER = "PRINTER"
+
     def __init__(self, machine):
         super(ReorientationApp, self).__init__()
         widget = MainPage(self.changeWidget, machine)
@@ -167,6 +190,8 @@ class ReorientationApp(QMainWindow):
         self.part_signal.connect(self.handlePartMSignal)
         self.splitter_signal.connect(self.handlePartSMSignal)
         self.picker_signal.connect(self.handlePickerMSignal)
+        self.serial_signal.connect(self.handleSerialSignal)
+        self.printer_signal.connect(self.handlePrinterSignal)
 
         self.setCentralWidget(widget)
         self.showFullScreen()
@@ -265,7 +290,6 @@ class ReorientationApp(QMainWindow):
     def handlePartSMSignal(self, name, value):
         self.displaySplitterError(value)
 
-
     @property
     def PICKER_ERROR(self):
         return self._PICKER_STATUS
@@ -277,6 +301,30 @@ class ReorientationApp(QMainWindow):
 
     def handlePickerMSignal(self, name, value):
         self.displayPickerError(value)
+
+    @property
+    def SERIAL_ERROR(self):
+        return self._SERIAL_STATUS
+
+    @SERIAL_ERROR.setter
+    def SERIAL_ERROR(self, value):
+        self._SERIAL_STATUS = value
+        self.serial_signal.emit(self.SERIAL, self._SERIAL_STATUS)
+
+    def handleSerialSignal(self, name, value):
+        self.displaySerialError(value)
+
+    @property
+    def PRINTER_ERROR(self):
+        return self._PRINTER_STATUS
+
+    @PRINTER_ERROR.setter
+    def PRINTER_ERROR(self, value):
+        self._PRINTER_STATUS = value
+        self.printer_signal.emit(self.PRINTER, self._PRINTER_STATUS)
+
+    def handlePrinterSignal(self, name, value):
+        self.displayPrinterError(value)
 
     def displayRollingError(self, signal):
         widget = RollingDisplay(self.changeWidget, self.machine)
@@ -321,6 +369,18 @@ class ReorientationApp(QMainWindow):
     def displayPickerError(self, signal):
         # Picker cannot move along z-axis
         widget = PickerDisplay(self.changeWidget, self.machine)
+        self.setCentralWidget(widget)
+        widget.setStyleSheet("background-color: rgb(171, 0, 0);")
+
+    def displaySerialError(self, signal):
+        # No ball seat detected after the splitter
+        widget = SerialDisplay(self.changeWidget, self.machine)
+        self.setCentralWidget(widget)
+        widget.setStyleSheet("background-color: rgb(171, 0, 0);")
+
+    def displayPrinterError(self, signal):
+        # Picker cannot move along z-axis
+        widget = PrinterDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
@@ -381,7 +441,7 @@ class MainPage(QFrame):
         self.button2.clicked.connect(self.button2_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -454,7 +514,7 @@ class ErrorDisplay(QFrame):
         self.button1.clicked.connect(self.button1_clicked)
         
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -548,7 +608,7 @@ class RollingDisplay(QFrame):
         self.button2.clicked.connect(self.button2_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -632,7 +692,7 @@ class InterlockDisplay(QFrame):
         self.button2.clicked.connect(self.button2_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -733,7 +793,7 @@ class PlacingDisplay(QFrame):
         self.button2.clicked.connect(self.button2_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Status")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -804,7 +864,7 @@ class FullDisplay(QFrame):
         self.button1.clicked.connect(self.button1_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -857,7 +917,7 @@ class EmerStopDisplay(QFrame):
         textLabel2.setAlignment(Qt.AlignVCenter)
 
         textLabel3 = QLabel(widget)
-        textLabel3.setText("1) Printer is in the proper internal state.")
+        textLabel3.setText("1) There are no greater-scope failures.")
         textLabel3.move(64,200) 
         font = textLabel3.font()
         font.setPointSize(35)
@@ -865,40 +925,24 @@ class EmerStopDisplay(QFrame):
         textLabel3.adjustSize()
 
         textLabel4 = QLabel(widget)
-        textLabel4.setText("2) Linux USB/serial port is appropriately")
+        textLabel4.setText("(Ex. Broken wires and parts)")
         textLabel4.move(64,265) 
-        font = textLabel4.font()
+        font = textLabel3.font()
         font.setPointSize(35)
         textLabel4.setFont(font)
         textLabel4.adjustSize()
 
-        textLabel7 = QLabel(widget)
-        textLabel7.setText("  configured.")
-        textLabel7.move(64,330) 
-        font = textLabel7.font()
-        font.setPointSize(35)
-        textLabel7.setFont(font)
-        textLabel7.adjustSize()
-
         textLabel5 = QLabel(widget)
-        textLabel5.setText("3) There are no greater-scope failures.")
-        textLabel5.move(64,395) 
+        textLabel5.setText("Restart the machine.")
+        textLabel5.move(64,350) 
         font = textLabel5.font()
         font.setPointSize(35)
         textLabel5.setFont(font)
         textLabel5.adjustSize()
-
-        textLabel6 = QLabel(widget)
-        textLabel6.setText("Restart the machine.")
-        textLabel6.move(64,500) 
-        font = textLabel6.font()
-        font.setPointSize(35)
-        textLabel6.setFont(font)
-        textLabel6.adjustSize()
-        textLabel6.setAlignment(Qt.AlignVCenter)
+        textLabel5.setAlignment(Qt.AlignVCenter)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -951,7 +995,7 @@ class ChamferPartDisplay(QFrame):
         textLabel3.adjustSize()
 
         textLabel4 = QLabel(widget)
-        textLabel4.setText("Restart the machine.")
+        textLabel4.setText("Remove the misloaded ball seat.")
         textLabel4.move(64,265) 
         font = textLabel4.font()
         font.setPointSize(35)
@@ -989,7 +1033,7 @@ class ChamferPartDisplay(QFrame):
         self.button2.clicked.connect(self.button2_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -1066,7 +1110,7 @@ class PauseDisplay(QFrame):
         self.button2.clicked.connect(self.button2_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -1161,7 +1205,7 @@ class SplitterDisplay(QFrame):
         self.button2.clicked.connect(self.button2_clicked)
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -1227,7 +1271,121 @@ class PickerDisplay(QFrame):
         print(repr(Status.PICKER))
 
         self.button3 = QPushButton(self)
-        self.button3.setText("Signal Statuses")
+        self.button3.setText("Status Signals")
+        self.button3.move(600,650)
+        self.button3.resize(100, 100)
+        self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
+        border-style: outset; \
+        border-width: 2px;\
+        border-radius: 10px; \
+        border-color: beige; \
+        font: bold 30px; \
+        min-width: 10em; \
+        padding: 6px;")
+        self.button3.clicked.connect(self.button3_clicked)
+    
+    def button3_clicked(self):
+        widget = SignalsDisplay(self.callback, self.machine)
+        self.callback(widget)
+        widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+        print("Button 3 clicked")
+
+class SerialDisplay(QFrame):
+    def __init__(self, callback, machine):
+        super(SerialDisplay,self).__init__()
+        self.callback = callback
+        self.machine = machine
+        widget = QWidget(self)
+        textLabel = QLabel(widget)
+        textLabel.setText("Error: Linux USB/serial port")
+        textLabel.move(64,70) 
+        font = textLabel.font()
+        font.setPointSize(50)
+        textLabel.setFont(font)
+        textLabel.adjustSize()
+        widget.setStyleSheet("color: rgb(250, 250, 250);")
+
+        textLabel2 = QLabel(widget)
+        textLabel2.setText("is not configured correctly.")
+        textLabel2.move(64,150) 
+        font = textLabel2.font()
+        font.setPointSize(50)
+        textLabel2.setFont(font)
+        textLabel2.adjustSize()
+        
+        textLabel3 = QLabel(widget)
+        textLabel3.setText("In seek.py, edit line 37,")
+        textLabel3.move(64,270) 
+        font = textLabel3.font()
+        font.setPointSize(50)
+        textLabel3.setFont(font)
+        textLabel3.adjustSize()
+
+        textLabel4 = QLabel(widget)
+        textLabel4.setText("and rerun HMI program.")
+        textLabel4.move(64,350) 
+        font = textLabel4.font()
+        font.setPointSize(50)
+        textLabel4.setFont(font)
+        textLabel4.adjustSize()
+
+        print(repr(Status.SERIAL))
+
+        self.button3 = QPushButton(self)
+        self.button3.setText("Status Signals")
+        self.button3.move(600,650)
+        self.button3.resize(100, 100)
+        self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
+        border-style: outset; \
+        border-width: 2px;\
+        border-radius: 10px; \
+        border-color: beige; \
+        font: bold 30px; \
+        min-width: 10em; \
+        padding: 6px;")
+        self.button3.clicked.connect(self.button3_clicked)
+    
+    def button3_clicked(self):
+        widget = SignalsDisplay(self.callback, self.machine)
+        self.callback(widget)
+        widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
+        print("Button 3 clicked")
+
+class PrinterDisplay(QFrame):
+    def __init__(self, callback, machine):
+        super(PrinterDisplay,self).__init__()
+        self.callback = callback
+        self.machine = machine
+        widget = QWidget(self)
+        textLabel = QLabel(widget)
+        textLabel.setText("Error: Printer started in the")
+        textLabel.move(64,70) 
+        font = textLabel.font()
+        font.setPointSize(50)
+        textLabel.setFont(font)
+        textLabel.adjustSize()
+        widget.setStyleSheet("color: rgb(250, 250, 250);")
+
+        textLabel2 = QLabel(widget)
+        textLabel2.setText("wrong internal state.")
+        textLabel2.move(64,150) 
+        font = textLabel2.font()
+        font.setPointSize(50)
+        textLabel2.setFont(font)
+        textLabel2.adjustSize()
+        
+        textLabel3 = QLabel(widget)
+        textLabel3.setText("Restart the machine. ")
+        textLabel3.move(64,270) 
+        font = textLabel3.font()
+        font.setPointSize(50)
+        textLabel3.setFont(font)
+        textLabel3.adjustSize()
+
+        print(repr(Status.SERIAL))
+
+        self.button3 = QPushButton(self)
+        self.button3.setText("Status Signals")
         self.button3.move(600,650)
         self.button3.resize(100, 100)
         self.button3.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -1254,7 +1412,7 @@ class SignalsDisplay(QFrame):
         self.machine = machine
         widget = QWidget(self)
         textLabel = QLabel(widget)
-        textLabel.setText("Signal Statuses")
+        textLabel.setText("Status Signals")
         textLabel.move(64,85)
         font = textLabel.font()
         font.setPointSize(50)
@@ -1290,7 +1448,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.move(64, 180)
 
         #Row count
-        self.tableWidget.setRowCount(9)
+        self.tableWidget.setRowCount(11)
 
         #Column count
         self.tableWidget.setColumnCount(2)
@@ -1340,7 +1498,7 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(4,1,item)
         item.setFont(font)
 
-        item = QTableWidgetItem("Printer cannot complete move")
+        item = QTableWidgetItem("Printer has greater scope failures")
         self.tableWidget.setItem(5,0,item)
         item.setFont(font)
 
@@ -1372,8 +1530,23 @@ class SignalsDisplay(QFrame):
         self.tableWidget.setItem(8,1,item)
         item.setFont(font)
 
+        item = QTableWidgetItem("Serial port is incorrect")
+        self.tableWidget.setItem(9,0,item)
+        item.setFont(font)
+
+        item = QTableWidgetItem(str(bool(SERIAL_STATUS)))
+        self.tableWidget.setItem(9,1,item)
+        item.setFont(font)
+
+        item = QTableWidgetItem("Printer is in the wrong state")
+        self.tableWidget.setItem(10,0,item)
+        item.setFont(font)
+
+        item =QTableWidgetItem(str(bool(PRINTER_STATUS)))
+        self.tableWidget.setItem(10,1,item)
+        item.setFont(font)
+
         #Table will fit the screen horizontally
-        # self.tableWidget.horizontalHeader().setStretchLastSection(True)
         self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         self.tableWidget.setStyleSheet("QTableWidget {\n"
@@ -1385,31 +1558,17 @@ class SignalsDisplay(QFrame):
         "\n"
         "}")
 
-        
-        # x = SCREEN.size().width()
-        # y = SCREEN.size().height()
-        # self.setMaximumHeight(.5 * y)
-        # self.setMaximumWidth(1 * x)
-        # self.setMinimumHeight(1 * y)
-        # self.setMinimumWidth(.5 * x)
         self.tableWidget.resizeRowsToContents()
-        # # setting current item
-        # self.tableWidget.setCurrentItem(item)
-        # # getting item changed signal
-        # self.tableWidget.currentItemChanged.connect(self.handlePartSignal)
 
     def button1_clicked(self):
         widget = ErrorDisplay(self.callback, self.machine)
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
-    
-    def handlePartSignal(self):
-        item =QTableWidgetItem(str(PART_STATUS))
-        self.tableWidget.setItem(6,1,item)
 
 if __name__ == '__main__':
 
 #def main_HMI():
+    # Threading HMI display and polling to occur at the same time
     bg = threading.Thread(name='background', target=background)
     fg = threading.Thread(name='run_app', target=run_app)
 
