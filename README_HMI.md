@@ -89,4 +89,4 @@ No assumptions beyond those that are clear from the spec.
 
 ### Compilation
 
-To compile, simply `sudo python3 reorientation_machine.py` for integrated HMI.
+To compile, simply `sudo python3 HMI.py` for integrated HMI.

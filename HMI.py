@@ -1,3 +1,6 @@
+# Joselyn Lopez Bonilla
+## ENGS90 Winter 2022
+
 from curses.ascii import EM
 import sys
 import time
@@ -49,14 +52,6 @@ PICKER_STATUS = button8_line.get_values()[0]
 SERIAL_STATUS = button9_line.get_values()[0]
 PRINTER_STATUS = button10_line.get_values()[0]
 
-
-# APPLICATION = None
-# ROLLING_STATUS = 0
-# ORIENT_STATUS = 0
-# PLACING_STATUS = 0
-# FULL_STATUS = 0
-# PART_STATUS = 0
-# EMERGENCY_STATUS = 0
 curr_status = Status.READY
 
 # Background function to poll signal changes from the machine
@@ -130,10 +125,8 @@ def background():
 
 # Will begin running the entire HMI application
 def run_app():
-    # global APPLICATION, SCREEN
     global APPLICATION
     app = QApplication(sys.argv)
-    # SCREEN = app.primaryScreen()
     splash = SplashScreen()
     time.sleep(1) # fake ready signal after 1 secs
     machine = seek.Machine()
@@ -200,6 +193,7 @@ class ReorientationApp(QMainWindow):
     def changeWidget(self, widget):
         self.setCentralWidget(widget)
 
+    # Calling the specified screen to be displayed
     @property
     def ROLL_ERROR(self):
         return self._ROLLING_STATUS
@@ -327,16 +321,19 @@ class ReorientationApp(QMainWindow):
         self.displayPrinterError(value)
 
     def displayRollingError(self, signal):
+        # No ball presented to vision system
         widget = RollingDisplay(self.changeWidget, self.machine)
         widget.setStyleSheet(" background-color: rgb(171, 0, 0);")
         self.setCentralWidget(widget)
 
     def displayInterlockError(self, signal):
+        # Enclosure door is open
         widget = InterlockDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displayFullTray(self, signal):
+        # Loading tray is full
         widget = FullDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(0, 0, 148);") 
@@ -348,13 +345,12 @@ class ReorientationApp(QMainWindow):
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displayEmergency(self, signal):
-        # Total printer failure or pnp failure vertical axis
+        # Total printer failure
         widget = EmerStopDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet(" background-color: rgb(171, 0, 0);")
 
     def displayPartError(self, signal):
-        # Detection warning
         # No part detected
         widget = ChamferPartDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
@@ -373,13 +369,13 @@ class ReorientationApp(QMainWindow):
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displaySerialError(self, signal):
-        # No ball seat detected after the splitter
+        # Incorrect Linux USB/serial port
         widget = SerialDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
 
     def displayPrinterError(self, signal):
-        # Picker cannot move along z-axis
+        # Printer started in the wrong internal state
         widget = PrinterDisplay(self.changeWidget, self.machine)
         self.setCentralWidget(widget)
         widget.setStyleSheet("background-color: rgb(171, 0, 0);")
@@ -411,9 +407,7 @@ class MainPage(QFrame):
         widget.setStyleSheet("color: rgb(255, 255, 255);")
         print(repr(Status.READY))
         
-        #self.button1 = QPushButton(self)
         self.button1 = QPushButton("Chamfer Up", self)
-        #self.button1.setText("Chamfer Side-Up")
         self.button1.move(100,300)
         self.button1.resize(100, 300)
         self.button1.setStyleSheet(" background-color: rgb(171, 171, 171); \
@@ -482,7 +476,6 @@ class MainPage(QFrame):
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         print("Button 3 clicked")
 
-# Using Keyboard strokes to represent signals coming from the machine
 class ErrorDisplay(QFrame):
     def __init__(self, callback, machine):
         super(ErrorDisplay,self).__init__()
@@ -529,7 +522,6 @@ class ErrorDisplay(QFrame):
 
     def button1_clicked(self):
         widget = PauseDisplay(self.callback, self.machine)
-        #print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(171, 94, 0);")
         self.callback(widget)
 
@@ -706,7 +698,7 @@ class InterlockDisplay(QFrame):
         self.button3.clicked.connect(self.button3_clicked)
 
     def button1_clicked(self):
-        widget = ErrorDisplay(self.callback)
+        widget = ErrorDisplay(self.callback, self.machine)
         print(repr(Status.FIXED))
         widget.setStyleSheet(" background-color: rgb(0, 110, 0);")
         self.callback(widget)
@@ -1314,20 +1306,12 @@ class SerialDisplay(QFrame):
         textLabel2.adjustSize()
         
         textLabel3 = QLabel(widget)
-        textLabel3.setText("In seek.py, edit line 37,")
+        textLabel3.setText("Restart the printer")
         textLabel3.move(64,270) 
         font = textLabel3.font()
         font.setPointSize(50)
         textLabel3.setFont(font)
         textLabel3.adjustSize()
-
-        textLabel4 = QLabel(widget)
-        textLabel4.setText("and rerun HMI program.")
-        textLabel4.move(64,350) 
-        font = textLabel4.font()
-        font.setPointSize(50)
-        textLabel4.setFont(font)
-        textLabel4.adjustSize()
 
         print(repr(Status.SERIAL))
 
@@ -1436,9 +1420,6 @@ class SignalsDisplay(QFrame):
         self.button1.clicked.connect(self.button1_clicked)
 
         self.createTable()
-        # self.layout = QVBoxLayout()
-        # self.layout.addWidget(self.tableWidget)
-        # self.setLayout(self.layout)
 
 	#Create table
     def createTable(self):

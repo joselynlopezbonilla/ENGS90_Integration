@@ -10,8 +10,8 @@ class Status(Enum):
     FIXED = "Issue was addressed." #Done
     PAUSE = "Pause is activated." #Done 
 
-    # Warnings and errors for rolling
-    EMPTY = "No ball seats loaded in machine"
+    # # Warnings and errors for rolling
+    # EMPTY = "No ball seats loaded in machine"
 
     # Warnings and errors for vision system and pick and place
     IVALID_PART = "Warning: No part detected." #Done
